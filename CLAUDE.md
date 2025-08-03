@@ -14,11 +14,15 @@ This is a Flutter mobile application for both Android and iOS that:
 
 ## Key Features
 - Natural language chat interface with Gemini AI
+- Multi-modal capture capabilities:
+  - Voice recording (web-compatible with `record` package)
+  - Photo capture via device camera
+  - Video recording (30-second limit)
 - AI-powered conversation summarization and report extraction
 - Local account authentication (email/password)
 - Google OAuth integration (pending backend configuration)
 - Backend API integration for report submission
-- Black/white theme with red accent color
+- Black/white theme with red accent color (#E53935)
 - Real-time token refresh and secure storage
 
 ## Authentication Implementation
@@ -47,3 +51,18 @@ This is a Flutter mobile application for both Android and iOS that:
 - Ensure cross-platform compatibility (iOS, Android, Web)
 - Test authentication flow before implementing new features
 - Check console for detailed error messages during development
+
+## Recent Updates
+### Voice/Photo/Video Capture (Latest)
+- Implemented multi-modal capture with mode switcher UI
+- Added large red capture button above text input
+- Voice recording works on web using dummy path with `record` package
+- Photo and video capture using `image_picker` package
+- Attachment icon on right side of text input for file uploads
+- Fixed web compatibility issues with path_provider
+
+### UI/UX Improvements
+- Changed app bar title from "Report Incident" to "Make a Report"
+- Implemented recording overlay with animated stop button
+- Mode selector with Voice/Photo/Video options
+- Visual feedback for active recording state
