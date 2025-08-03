@@ -2,17 +2,15 @@
 
 A Flutter mobile application for iOS, Android, and Web that enables natural language incident reporting with AI assistance.
 
-<p align="center">
-  <img src="screenshots/app_logo.png" alt="geoBingAn Logo" width="120"/>
-</p>
-
 ## Screenshots
 
 <p align="center">
-  <img src="screenshots/login_page.png" alt="Login Page" width="250"/>
-  <img src="screenshots/chat_interface.png" alt="Chat Interface" width="250"/>
-  <img src="screenshots/home_dashboard.png" alt="Home Dashboard" width="250"/>
+  <img src="screenshots/home_dashboard.png" alt="Home Dashboard" width="300"/>
+  &nbsp;&nbsp;
+  <img src="screenshots/chat_interface.png" alt="Chat Interface" width="300"/>
 </p>
+
+> 📸 **More screenshots coming soon**: Login page, Registration, Profile page, and Report summary views.
 
 ## Features
 
