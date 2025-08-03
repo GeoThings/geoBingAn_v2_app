@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import '../config/app_config.dart';
 
@@ -28,10 +29,10 @@ class GeminiService {
         maxOutputTokens: 1024,
       ),
       safetySettings: [
-        SafetySetting(HarmCategory.harassment, HarmBlockThreshold.mediumAndAbove),
-        SafetySetting(HarmCategory.hateSpeech, HarmBlockThreshold.mediumAndAbove),
-        SafetySetting(HarmCategory.sexuallyExplicit, HarmBlockThreshold.mediumAndAbove),
-        SafetySetting(HarmCategory.dangerousContent, HarmBlockThreshold.mediumAndAbove),
+        SafetySetting(HarmCategory.harassment, HarmBlockThreshold.medium),
+        SafetySetting(HarmCategory.hateSpeech, HarmBlockThreshold.medium),
+        SafetySetting(HarmCategory.sexuallyExplicit, HarmBlockThreshold.medium),
+        SafetySetting(HarmCategory.dangerousContent, HarmBlockThreshold.medium),
       ],
     );
     
@@ -143,7 +144,7 @@ Summary (2-3 sentences):''';
   ) async {
     try {
       final imageBytes = await _loadImageBytes(imagePath);
-      final imagePart = DataPart('image/jpeg', imageBytes);
+      final imagePart = DataPart('image/jpeg', Uint8List.fromList(imageBytes));
       
       final response = await _visionModel.generateContent([
         Content.multi([

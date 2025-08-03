@@ -13,12 +13,37 @@ This is a Flutter mobile application for both Android and iOS that:
 4. Transforms natural language into structured reports
 
 ## Key Features
-- Natural language chat interface
-- AI-powered conversation summarization
+- Natural language chat interface with Gemini AI
+- AI-powered conversation summarization and report extraction
+- Local account authentication (email/password)
+- Google OAuth integration (pending backend configuration)
 - Backend API integration for report submission
-- Form-based reporting as alternative input method
+- Black/white theme with red accent color
+- Real-time token refresh and secure storage
+
+## Authentication Implementation
+### Local Authentication
+- Registration: `/auth/auth/register/` with username, email, password, password_confirm, display_name
+- Login: `/auth/auth/login/` with email and password
+- JWT tokens stored securely using flutter_secure_storage
+- Automatic token refresh on 401 responses
+
+### OAuth (Future)
+- Google OAuth ready (requires backend client_id configuration)
+- LINE and Facebook OAuth prepared for future implementation
+- OAuth callback handling at `/oauth/callback` route
+
+## API Integration
+- Base URL configured in `.env` file
+- Dio HTTP client with interceptors for:
+  - Automatic token attachment
+  - Token refresh on expiry
+  - Group context headers
+  - Response caching
 
 ## Development Guidelines
 - Follow the naming convention: geoBingAn (lowercase 'g')
 - Use the existing backend API patterns from geoBingAn_v2_frontend
-- Ensure cross-platform compatibility (iOS and Android)
+- Ensure cross-platform compatibility (iOS, Android, Web)
+- Test authentication flow before implementing new features
+- Check console for detailed error messages during development

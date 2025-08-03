@@ -1,15 +1,31 @@
 # geoBingAn v2 Mobile App
 
-A Flutter mobile application for iOS and Android that enables natural language incident reporting with AI assistance.
+A Flutter mobile application for iOS, Android, and Web that enables natural language incident reporting with AI assistance.
+
+<p align="center">
+  <img src="screenshots/app_logo.png" alt="geoBingAn Logo" width="120"/>
+</p>
+
+## Screenshots
+
+<p align="center">
+  <img src="screenshots/login_page.png" alt="Login Page" width="250"/>
+  <img src="screenshots/chat_interface.png" alt="Chat Interface" width="250"/>
+  <img src="screenshots/home_dashboard.png" alt="Home Dashboard" width="250"/>
+</p>
 
 ## Features
 
 - **Natural Language Chat Interface**: Report incidents by having a conversation with AI
 - **Gemini AI Integration**: Intelligent conversation processing and report extraction
-- **Google OAuth Authentication**: Secure sign-in with Google account (LINE and native auth coming soon)
+- **Multiple Authentication Methods**: 
+  - Local account registration and login
+  - Google OAuth (requires backend configuration)
+  - LINE and Facebook OAuth (coming soon)
 - **Multi-language Support**: Traditional Chinese, Simplified Chinese, and English
 - **Dark/Light Theme**: Black and white based design with red accent color
 - **Real-time Report Submission**: Seamless integration with geoBingAn v2 backend API
+- **Secure Token Management**: JWT authentication with automatic refresh
 
 ## Architecture
 
@@ -23,26 +39,48 @@ The app follows a clean architecture pattern with:
 
 1. **Prerequisites**
    - Flutter SDK 3.0+
-   - Android Studio or Xcode
+   - Dart SDK 3.0+
+   - Chrome browser (for web development)
+   - Android Studio or Xcode (for mobile development)
    - geoBingAn v2 backend running locally or deployed
 
-2. **Configuration**
-   - Copy `.env.example` to `.env`
-   - Add your API keys:
-     ```
-     API_BASE_URL=http://localhost:8000/api
-     GEMINI_API_KEY=your_gemini_api_key
-     GOOGLE_MAPS_API_KEY=your_google_maps_api_key
-     ```
+2. **Backend Setup**
+   - Clone and run [geoBingAn_v2_backend](https://github.com/GeoThings/geoBingAn_v2_backend)
+   - Ensure the backend is running on `http://localhost:8000`
+   - For Google OAuth, configure OAuth client_id in backend settings
 
-3. **Installation**
+3. **Environment Configuration**
+   The `.env` file is already configured with:
+   ```
+   API_BASE_URL=http://localhost:8000/api
+   GEMINI_API_KEY=<configured>
+   GOOGLE_MAPS_API_KEY=<configured>
+   ```
+   Update `API_BASE_URL` if your backend runs on a different URL.
+
+4. **Installation**
    ```bash
+   # Install dependencies
    flutter pub get
+   
+   # Run code generation (if needed)
+   flutter pub run build_runner build
    ```
 
-4. **Run the app**
+5. **Run the app**
    ```bash
+   # For web (recommended for development)
+   flutter run -d chrome
+   
+   # For iOS Simulator
+   open -a Simulator
    flutter run
+   
+   # For Android Emulator
+   flutter run -d android
+   
+   # List all available devices
+   flutter devices
    ```
 
 ## Project Structure

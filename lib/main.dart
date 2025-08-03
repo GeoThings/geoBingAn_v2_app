@@ -7,6 +7,8 @@ import 'core/theme/app_theme.dart';
 import 'features/auth/presentation/pages/splash_page.dart';
 import 'features/chat/presentation/pages/chat_page.dart';
 import 'features/auth/presentation/pages/login_page.dart';
+import 'features/auth/presentation/pages/register_page.dart';
+import 'features/auth/presentation/pages/oauth_callback_page.dart';
 import 'features/home/presentation/pages/home_page.dart';
 import 'core/services/storage_service.dart';
 
@@ -41,8 +43,10 @@ class GeoBingAnApp extends ConsumerWidget {
       routes: {
         '/': (context) => const SplashPage(),
         '/login': (context) => const LoginPage(),
+        '/register': (context) => const RegisterPage(),
         '/home': (context) => const HomePage(),
         '/chat': (context) => const ChatPage(),
+        '/oauth/callback': (context) => const OAuthCallbackPage(),
       },
     );
   }

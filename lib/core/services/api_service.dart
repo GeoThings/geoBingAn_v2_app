@@ -120,7 +120,7 @@ class ApiService {
   // Auth endpoints
   Future<Response> login(String email, String password) async {
     return await _dio.post('/auth/auth/login/', data: {
-      'username': email,
+      'email': email,
       'password': password,
     });
   }
@@ -130,9 +130,14 @@ class ApiService {
     required String password,
     required String displayName,
   }) async {
+    // Use email as username if not provided separately
+    final username = email.split('@')[0]; // Use email prefix as username
+    
     return await _dio.post('/auth/auth/register/', data: {
       'email': email,
+      'username': username,
       'password': password,
+      'password_confirm': password, // Use same password for confirmation
       'display_name': displayName,
     });
   }
