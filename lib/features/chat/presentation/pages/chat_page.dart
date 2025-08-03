@@ -9,8 +9,10 @@ import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'dart:typed_data';
 import '../../providers/chat_provider.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/services/gemini_service.dart';
 
 class ChatPage extends ConsumerStatefulWidget {
   const ChatPage({super.key});
@@ -141,18 +143,37 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     ref.read(chatProvider.notifier).addMessage(mediaMessage);
     ref.read(chatProvider.notifier).setTyping(true);
     
-    // TODO: Send media file to Gemini AI for processing
-    await Future.delayed(const Duration(seconds: 2));
-    
-    final responseMessage = types.TextMessage(
-      author: _ai,
-      createdAt: DateTime.now().millisecondsSinceEpoch,
-      id: const Uuid().v4(),
-      text: 'I received your $mediaType. Visual analysis will be implemented soon. Please describe what you captured.',
-    );
-    
-    ref.read(chatProvider.notifier).addMessage(responseMessage);
-    ref.read(chatProvider.notifier).setTyping(false);
+    try {
+      String response;
+      if (mediaType == 'photo') {
+        // Analyze photo with Gemini Vision
+        response = await ref.read(chatProvider.notifier).analyzeImage(mediaPath);
+      } else {
+        // For video, extract a frame and analyze it
+        // Note: Full video analysis requires more complex processing
+        response = await ref.read(chatProvider.notifier).analyzeVideo(mediaPath);
+      }
+      
+      final responseMessage = types.TextMessage(
+        author: _ai,
+        createdAt: DateTime.now().millisecondsSinceEpoch,
+        id: const Uuid().v4(),
+        text: response,
+      );
+      
+      ref.read(chatProvider.notifier).addMessage(responseMessage);
+    } catch (e) {
+      print('Error analyzing media: $e');
+      final errorMessage = types.TextMessage(
+        author: _ai,
+        createdAt: DateTime.now().millisecondsSinceEpoch,
+        id: const Uuid().v4(),
+        text: 'I received your $mediaType but encountered an error during analysis. Please describe what you captured.',
+      );
+      ref.read(chatProvider.notifier).addMessage(errorMessage);
+    } finally {
+      ref.read(chatProvider.notifier).setTyping(false);
+    }
   }
   
   Future<void> _startRecording() async {
@@ -253,21 +274,48 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     ref.read(chatProvider.notifier).addMessage(audioMessage);
     ref.read(chatProvider.notifier).setTyping(true);
     
-    // TODO: Send audio to Gemini AI for processing
-    // On web, audioPath might be 'web_audio_stream' indicating we have stream data
-    // On mobile, it's the actual file path
-    
-    await Future.delayed(const Duration(seconds: 2));
-    
-    final responseMessage = types.TextMessage(
-      author: _ai,
-      createdAt: DateTime.now().millisecondsSinceEpoch,
-      id: const Uuid().v4(),
-      text: 'I received your voice message. The audio has been captured successfully. Voice-to-text processing will be integrated with Gemini AI soon. For now, please type your message or continue recording.',
-    );
-    
-    ref.read(chatProvider.notifier).addMessage(responseMessage);
-    ref.read(chatProvider.notifier).setTyping(false);
+    try {
+      // Process audio with Gemini
+      String response;
+      if (kIsWeb || audioPath == 'web_audio_stream') {
+        // For web, get Gemini's contextual response for audio
+        response = await ref.read(chatProvider.notifier).transcribeAudio('web_audio');
+      } else {
+        // For mobile, try to transcribe the audio file
+        response = await ref.read(chatProvider.notifier).transcribeAudio(audioPath);
+      }
+      
+      if (response.isNotEmpty) {
+        // Show Gemini's response about the audio
+        final responseMessage = types.TextMessage(
+          author: _ai,
+          createdAt: DateTime.now().millisecondsSinceEpoch,
+          id: const Uuid().v4(),
+          text: response,
+        );
+        ref.read(chatProvider.notifier).addMessage(responseMessage);
+      } else {
+        // Fallback message if no response
+        final responseMessage = types.TextMessage(
+          author: _ai,
+          createdAt: DateTime.now().millisecondsSinceEpoch,
+          id: const Uuid().v4(),
+          text: 'I received your voice message. Please type or describe what you wanted to report.',
+        );
+        ref.read(chatProvider.notifier).addMessage(responseMessage);
+      }
+    } catch (e) {
+      print('Error processing audio: $e');
+      final errorMessage = types.TextMessage(
+        author: _ai,
+        createdAt: DateTime.now().millisecondsSinceEpoch,
+        id: const Uuid().v4(),
+        text: 'I had trouble processing your voice message. Please try recording again or type your message instead.',
+      );
+      ref.read(chatProvider.notifier).addMessage(errorMessage);
+    } finally {
+      ref.read(chatProvider.notifier).setTyping(false);
+    }
     
     // Clean up the audio file only on mobile platforms
     if (!kIsWeb && audioPath != 'web_audio_stream' && audioPath.contains('/')) {
@@ -540,13 +588,41 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             user: _user,
             showUserAvatars: true,
             showUserNames: true,
-            theme: DefaultChatTheme(
-              primaryColor: Theme.of(context).colorScheme.secondary,
-              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-              inputBackgroundColor: Theme.of(context).cardColor,
-              inputTextColor: Theme.of(context).textTheme.bodyLarge?.color ?? Colors.black,
-              messageBorderRadius: 16,
-            ),
+            theme: isDark
+                ? DarkChatTheme(
+                    primaryColor: Theme.of(context).colorScheme.secondary,
+                    backgroundColor: Colors.black,
+                    inputBackgroundColor: Colors.grey[900]!,
+                    inputTextColor: Colors.white,
+                    messageBorderRadius: 16,
+                    receivedMessageBodyTextStyle: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    sentMessageBodyTextStyle: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  )
+                : DefaultChatTheme(
+                    primaryColor: Theme.of(context).colorScheme.secondary,
+                    backgroundColor: Colors.white,
+                    inputBackgroundColor: Colors.grey[100]!,
+                    inputTextColor: Colors.black87,
+                    messageBorderRadius: 16,
+                    receivedMessageBodyTextStyle: const TextStyle(
+                      color: Colors.black87,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    sentMessageBodyTextStyle: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
             customBottomWidget: _buildCustomInputBar(context, isDark, chatState),
           ),
           // Large recording button overlay

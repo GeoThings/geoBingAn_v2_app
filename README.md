@@ -19,7 +19,13 @@ A Flutter mobile application for iOS, Android, and Web that enables natural lang
   - Voice recording with real-time audio capture
   - Photo capture for visual evidence
   - Video recording (up to 30 seconds)
-- **Gemini AI Integration**: Intelligent conversation processing and report extraction
+- **Gemini AI Integration**: 
+  - Powered by Gemini 2.5 Flash model
+  - Intelligent conversation processing and report extraction
+  - Image analysis for photo evidence
+  - Video frame analysis for incident documentation
+  - Contextual audio message handling
+  - See [AI.md](AI.md) for detailed prompts and logic
 - **Multiple Authentication Methods**: 
   - Local account registration and login
   - Google OAuth (requires backend configuration)
@@ -104,14 +110,15 @@ lib/
 
 ### Chat Interface
 - Powered by `flutter_chat_ui` for a polished messaging experience
-- Real-time AI responses using Gemini Pro
+- Real-time AI responses using Gemini 2.5 Flash
 - Multi-modal input support:
   - Voice recording with web-compatible audio capture
-  - Photo capture using device camera
-  - Video recording (30-second limit)
+  - Photo capture with AI vision analysis
+  - Video recording with contextual prompts (30-second limit)
   - File attachments and location sharing
 - Mode switcher UI for easy capture method selection
 - Large red capture button for prominent user interaction
+- Dark mode support with proper theming
 - Automatic report data extraction from conversations
 
 ### Authentication

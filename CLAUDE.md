@@ -53,7 +53,15 @@ This is a Flutter mobile application for both Android and iOS that:
 - Check console for detailed error messages during development
 
 ## Recent Updates
-### Voice/Photo/Video Capture (Latest)
+### Gemini 2.5 Flash Integration (Latest)
+- Upgraded from Gemini Pro to Gemini 2.5 Flash model
+- Implemented vision analysis for photos using multimodal capabilities
+- Added contextual prompts for voice and video handling
+- Fixed dark theme support for chat bubbles
+- Added detailed error logging for debugging
+- See [AI.md](AI.md) for complete prompt documentation
+
+### Voice/Photo/Video Capture
 - Implemented multi-modal capture with mode switcher UI
 - Added large red capture button above text input
 - Voice recording works on web using dummy path with `record` package
@@ -66,3 +74,4 @@ This is a Flutter mobile application for both Android and iOS that:
 - Implemented recording overlay with animated stop button
 - Mode selector with Voice/Photo/Video options
 - Visual feedback for active recording state
+- Dark mode support with proper theming for chat interface

@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter_chat_types/flutter_chat_types.dart' as types;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/services/gemini_service.dart';
@@ -54,6 +56,59 @@ class ChatNotifier extends StateNotifier<ChatState> {
       return response;
     } catch (e) {
       return 'Sorry, I encountered an error. Please try again.';
+    }
+  }
+  
+  Future<String> analyzeImage(String imagePath) async {
+    try {
+      final prompt = '''Analyze this image for a safety incident report. 
+Describe what you see, including:
+- What is happening or what happened
+- Any visible hazards or safety concerns
+- Location details if visible
+- People or vehicles involved
+- Any damage or injuries visible
+- Time of day if determinable
+- Weather conditions if relevant
+
+Provide a clear, detailed description that would help authorities understand the situation.''';
+      
+      final result = await _geminiService.analyzeImageWithText(imagePath, prompt);
+      
+      if (result['success'] == true) {
+        return result['analysis'] as String;
+      } else {
+        return 'I was unable to analyze the image properly. Please describe what the photo shows.';
+      }
+    } catch (e) {
+      print('Error analyzing image: $e');
+      return 'I encountered an error analyzing the photo. Please describe what it shows so I can help you with your report.';
+    }
+  }
+  
+  Future<String> analyzeVideo(String videoPath) async {
+    try {
+      final result = await _geminiService.analyzeVideoFrame(videoPath);
+      
+      if (result['success'] == true) {
+        return result['analysis'] as String;
+      } else {
+        return 'I had trouble processing the video. Please describe what it shows.';
+      }
+    } catch (e) {
+      print('Error analyzing video: $e');
+      return 'I had trouble processing the video. Please describe what it shows.';
+    }
+  }
+  
+  Future<String> transcribeAudio(String audioPath) async {
+    try {
+      // Use Gemini to provide contextual response for audio
+      final response = await _geminiService.transcribeAudioWithGemini(audioPath);
+      return response;
+    } catch (e) {
+      print('Error transcribing audio: $e');
+      return '';
     }
   }
   
