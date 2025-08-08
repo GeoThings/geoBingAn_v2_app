@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
 
 class GeminiService {
@@ -22,7 +23,7 @@ class GeminiService {
     }
     
     _model = GenerativeModel(
-      model: 'gemini-2.5-flash',
+      model: 'gemini-2.5-pro',
       apiKey: AppConfig.geminiApiKey,
       generationConfig: GenerationConfig(
         temperature: 0.7,
@@ -38,9 +39,9 @@ class GeminiService {
       ],
     );
     
-    // Use gemini-2.5-flash for multimodal vision tasks
+    // Use gemini-2.5-pro for multimodal tasks (audio, video, images)
     _visionModel = GenerativeModel(
-      model: 'gemini-2.5-flash',
+      model: 'gemini-2.5-pro',
       apiKey: AppConfig.geminiApiKey,
       generationConfig: GenerationConfig(
         temperature: 0.4,
@@ -168,13 +169,17 @@ Summary (2-3 sentences):''';
     String prompt,
   ) async {
     try {
+      print('Analyzing image: $imagePath');
       final imageBytes = await _loadImageBytes(imagePath);
       if (imageBytes.isEmpty) {
-        return {'success': false, 'error': 'Could not load image'};
+        print('Failed to load image bytes from: $imagePath');
+        return {'success': false, 'error': 'Could not load image data'};
       }
       
+      print('Creating image part with ${imageBytes.length} bytes');
       final imagePart = DataPart('image/jpeg', Uint8List.fromList(imageBytes));
       
+      print('Sending image to Gemini Pro for analysis...');
       final response = await _visionModel.generateContent([
         Content.multi([
           TextPart(prompt),
@@ -183,9 +188,11 @@ Summary (2-3 sentences):''';
       ]);
       
       final text = response.text ?? '';
+      print('Gemini Pro image analysis complete: ${text.substring(0, text.length > 100 ? 100 : text.length)}...');
       return {'success': true, 'analysis': text};
     } catch (e) {
-      print('Error analyzing image: $e');
+      print('Error analyzing image with Gemini: $e');
+      print('Stack trace: ${StackTrace.current}');
       return {'success': false, 'error': e.toString()};
     }
   }
@@ -226,17 +233,37 @@ Summary (2-3 sentences):''';
   Future<List<int>> _loadImageBytes(String path) async {
     try {
       if (kIsWeb) {
-        // On web, the path might be a blob URL or data URL
-        // For now, return empty as web image handling requires different approach
-        print('Web image loading not yet implemented');
-        return [];
+        print('Web image processing - path: $path');
+        
+        // On web, image_picker returns a blob URL or network path
+        if (path.startsWith('blob:') || path.startsWith('http')) {
+          print('Fetching image from URL: $path');
+          try {
+            final response = await http.get(Uri.parse(path));
+            if (response.statusCode == 200) {
+              print('Successfully fetched image, size: ${response.bodyBytes.length} bytes');
+              return response.bodyBytes;
+            } else {
+              print('Failed to fetch image: ${response.statusCode}');
+              return [];
+            }
+          } catch (e) {
+            print('Error fetching image URL: $e');
+            return [];
+          }
+        } else {
+          print('Unexpected image path format on web: $path');
+          return [];
+        }
       } else {
         // On mobile, load the file directly
         final file = File(path);
         if (await file.exists()) {
-          return await file.readAsBytes();
+          final bytes = await file.readAsBytes();
+          print('Loaded image file, size: ${bytes.length} bytes');
+          return bytes;
         } else {
-          print('File does not exist: $path');
+          print('Image file does not exist: $path');
           return [];
         }
       }
@@ -248,56 +275,199 @@ Summary (2-3 sentences):''';
   
   Future<Map<String, dynamic>> analyzeVideoFrame(String videoPath) async {
     try {
-      // For video analysis, we would extract a frame and analyze it
-      // This requires video processing libraries like ffmpeg
-      // For now, we'll provide guidance on what to describe
+      // Gemini 2.5 Pro supports native video input
+      final videoBytes = await _loadVideoBytes(videoPath);
+      if (videoBytes.isEmpty) {
+        return {
+          'success': false,
+          'analysis': 'Could not load video. Please describe what the video shows.'
+        };
+      }
       
-      final prompt = '''The user has uploaded a video for a safety incident report. 
-Please ask them to describe:
-- What the video shows
-- When and where it was recorded
-- Any safety hazards or incidents visible
-- People or vehicles involved
-- The duration and key moments in the video
-- Any urgent safety concerns that need immediate attention''';
+      // Create video part for Gemini Pro
+      final videoPart = DataPart('video/mp4', Uint8List.fromList(videoBytes));
       
-      final response = await _model.generateContent([Content.text(prompt)]);
+      final prompt = '''You are a safety incident reporting assistant. A user has uploaded a video for their incident report.
+
+Analyze this video and respond in natural language as if you're having a conversation with the user.
+
+Describe what you see in the video, including:
+- What is happening (describe the events you observe)
+- Any safety hazards or incidents
+- Location details if visible
+- People, vehicles, or objects involved
+- Time of day and conditions
+- Severity assessment
+
+After describing what you see, ask relevant follow-up questions to gather any missing information needed for the incident report.
+
+IMPORTANT: Respond conversationally in plain text, NOT in JSON or structured format. Talk directly to the user about what you observed in their video.''';
+      
+      final response = await _visionModel.generateContent([
+        Content.multi([
+          TextPart(prompt),
+          videoPart,
+        ])
+      ]);
       
       return {
         'success': true,
-        'analysis': response.text ?? 'Please describe what the video shows for the incident report.'
+        'analysis': response.text ?? 'Video analyzed. Please provide any additional context about the incident.'
       };
     } catch (e) {
-      print('Error analyzing video: $e');
-      return {'success': false, 'error': e.toString()};
+      print('Error analyzing video with Gemini Pro: $e');
+      return {
+        'success': false,
+        'analysis': 'I had trouble analyzing the video. Please describe what it shows so I can help with your report.'
+      };
+    }
+  }
+  
+  Future<List<int>> _loadVideoBytes(String path) async {
+    try {
+      if (kIsWeb) {
+        print('Web video processing - path: $path');
+        
+        // On web, video might be a blob URL
+        if (path.startsWith('blob:') || path.startsWith('http')) {
+          print('Fetching video from URL: $path');
+          try {
+            final response = await http.get(Uri.parse(path));
+            if (response.statusCode == 200) {
+              final fileSize = response.bodyBytes.length;
+              // Check file size (limit to 20MB for Gemini Pro)
+              if (fileSize > 20 * 1024 * 1024) {
+                print('Video file too large: ${fileSize / 1024 / 1024}MB');
+                return [];
+              }
+              print('Successfully fetched video, size: ${fileSize} bytes');
+              return response.bodyBytes;
+            } else {
+              print('Failed to fetch video: ${response.statusCode}');
+              return [];
+            }
+          } catch (e) {
+            print('Error fetching video URL: $e');
+            return [];
+          }
+        } else {
+          print('Unexpected video path format on web: $path');
+          return [];
+        }
+      } else {
+        // On mobile, load the file directly
+        final file = File(path);
+        if (await file.exists()) {
+          // Check file size (Gemini Pro supports larger files, but let's limit to 20MB)
+          final fileSize = await file.length();
+          if (fileSize > 20 * 1024 * 1024) {
+            print('Video file too large: ${fileSize / 1024 / 1024}MB');
+            return [];
+          }
+          final bytes = await file.readAsBytes();
+          print('Loaded video file, size: ${bytes.length} bytes');
+          return bytes;
+        } else {
+          print('Video file does not exist: $path');
+          return [];
+        }
+      }
+    } catch (e) {
+      print('Error loading video bytes: $e');
+      return [];
     }
   }
   
   Future<String> transcribeAudioWithGemini(String audioPath) async {
     try {
-      // Gemini doesn't directly support audio transcription
-      // We need to use Google Cloud Speech-to-Text or similar service
-      // For now, provide a fallback message
+      // Gemini 2.5 Pro supports native audio input
+      final audioBytes = await _loadAudioBytes(audioPath);
+      if (audioBytes.isEmpty && !kIsWeb) {
+        return 'Could not load audio file. Please try recording again or type your message.';
+      }
       
-      final prompt = '''The user has sent a voice message for a safety incident report.
-Please ask them to:
-1. Type out what they said in the voice message, or
-2. Describe the incident they want to report
+      // For web, handle appropriately
+      if (kIsWeb && audioBytes.isEmpty) {
+        // Web audio might be handled differently
+        return 'Voice message received. Please describe the incident you want to report.';
+      }
+      
+      // Create audio part for Gemini Pro
+      final audioPart = DataPart('audio/wav', Uint8List.fromList(audioBytes));
+      
+      final prompt = '''You are a safety incident reporting assistant. Listen to this voice message from a user reporting an incident.
 
-Key information to gather:
+First, acknowledge what you heard in the audio message by summarizing what the user said.
+
+Then, have a natural conversation with the user about their report. Consider:
 - Type and nature of the incident
 - Location where it occurred
 - Time of occurrence
 - People involved or affected
 - Current safety status
-- Any immediate dangers''';
+- Any immediate dangers
+
+Ask follow-up questions to gather any missing information needed for a complete incident report.
+
+IMPORTANT: Respond conversationally as if you're talking directly to the user. Start by acknowledging what they said in their voice message.''';
       
-      final response = await _model.generateContent([Content.text(prompt)]);
+      final response = await _visionModel.generateContent([
+        Content.multi([
+          TextPart(prompt),
+          audioPart,
+        ])
+      ]);
       
-      return response.text ?? 'Please describe the incident you want to report while I process your voice message.';
+      return response.text ?? 'I understood your voice message. Could you provide more details about the incident?';
     } catch (e) {
-      print('Error processing audio: $e');
-      return 'I had trouble processing your voice message. Please type your report instead.';
+      print('Error processing audio with Gemini Pro: $e');
+      return 'I had trouble processing your voice message. Could you please describe the incident you want to report?';
+    }
+  }
+  
+  Future<List<int>> _loadAudioBytes(String path) async {
+    try {
+      if (kIsWeb) {
+        // On web, the record package returns a blob URL
+        print('Web audio processing - path: $path');
+        
+        // Check if it's a blob URL
+        if (path.startsWith('blob:')) {
+          print('Fetching audio from blob URL: $path');
+          try {
+            // Fetch the blob data
+            final response = await http.get(Uri.parse(path));
+            if (response.statusCode == 200) {
+              print('Successfully fetched audio blob, size: ${response.bodyBytes.length} bytes');
+              return response.bodyBytes;
+            } else {
+              print('Failed to fetch blob: ${response.statusCode}');
+              return [];
+            }
+          } catch (e) {
+            print('Error fetching blob URL: $e');
+            return [];
+          }
+        } else {
+          // If not a blob URL, might be a placeholder
+          print('Web audio path is not a blob URL: $path');
+          return [];
+        }
+      } else {
+        // On mobile, load the audio file directly
+        final file = File(path);
+        if (await file.exists()) {
+          final bytes = await file.readAsBytes();
+          print('Loaded audio file, size: ${bytes.length} bytes');
+          return bytes;
+        } else {
+          print('Audio file does not exist: $path');
+          return [];
+        }
+      }
+    } catch (e) {
+      print('Error loading audio bytes: $e');
+      return [];
     }
   }
 }

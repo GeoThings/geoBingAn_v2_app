@@ -94,7 +94,11 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       );
       
       if (photo != null) {
+        print('Photo captured: ${photo.path}');
+        print('Photo name: ${photo.name}');
         _sendMediaToAI(photo.path, 'photo');
+      } else {
+        print('No photo captured');
       }
     } catch (e) {
       print('Error capturing photo: $e');
@@ -117,7 +121,11 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       );
       
       if (video != null) {
+        print('Video captured: ${video.path}');
+        print('Video name: ${video.name}');
         _sendMediaToAI(video.path, 'video');
+      } else {
+        print('No video captured');
       }
     } catch (e) {
       print('Error capturing video: $e');
@@ -240,12 +248,17 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       });
       
       if (path != null) {
-        // For both web and mobile, we have audio data
+        print('Audio recording stopped, path: $path');
+        // Send the actual path (blob URL on web, file path on mobile)
         _sendAudioToAI(path);
-      } else if (kIsWeb) {
-        // On web, even without a path, we might have stream data
-        // For now, show that recording was captured
-        _sendAudioToAI('web_audio_stream');
+      } else {
+        print('No path returned from audio recorder');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No audio was recorded. Please try again.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
       }
       
       ScaffoldMessenger.of(context).showSnackBar(
@@ -275,15 +288,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     ref.read(chatProvider.notifier).setTyping(true);
     
     try {
-      // Process audio with Gemini
-      String response;
-      if (kIsWeb || audioPath == 'web_audio_stream') {
-        // For web, get Gemini's contextual response for audio
-        response = await ref.read(chatProvider.notifier).transcribeAudio('web_audio');
-      } else {
-        // For mobile, try to transcribe the audio file
-        response = await ref.read(chatProvider.notifier).transcribeAudio(audioPath);
-      }
+      // Process audio with Gemini Pro
+      final response = await ref.read(chatProvider.notifier).transcribeAudio(audioPath);
       
       if (response.isNotEmpty) {
         // Show Gemini's response about the audio

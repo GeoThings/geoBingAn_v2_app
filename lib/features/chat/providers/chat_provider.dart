@@ -61,9 +61,14 @@ class ChatNotifier extends StateNotifier<ChatState> {
   
   Future<String> analyzeImage(String imagePath) async {
     try {
-      final prompt = '''Analyze this image for a safety incident report. 
-Describe what you see, including:
-- What is happening or what happened
+      print('ChatProvider: Analyzing image from path: $imagePath');
+      
+      final prompt = '''You are a safety incident reporting assistant. A user has uploaded a photo for their incident report.
+
+Look at this image and respond conversationally as if you're talking directly to the user.
+
+Describe what you see in the photo:
+- What appears to be happening or what happened
 - Any visible hazards or safety concerns
 - Location details if visible
 - People or vehicles involved
@@ -71,13 +76,18 @@ Describe what you see, including:
 - Time of day if determinable
 - Weather conditions if relevant
 
-Provide a clear, detailed description that would help authorities understand the situation.''';
+After describing what you see, ask relevant follow-up questions to gather more details about the incident.
+
+IMPORTANT: Respond in natural language as a helpful assistant, NOT in bullet points or structured format. Have a conversation with the user about what you observed.''';
       
       final result = await _geminiService.analyzeImageWithText(imagePath, prompt);
+      print('Image analysis result: $result');
       
       if (result['success'] == true) {
         return result['analysis'] as String;
       } else {
+        final error = result['error'] ?? 'Unknown error';
+        print('Image analysis failed: $error');
         return 'I was unable to analyze the image properly. Please describe what the photo shows.';
       }
     } catch (e) {
@@ -88,11 +98,16 @@ Provide a clear, detailed description that would help authorities understand the
   
   Future<String> analyzeVideo(String videoPath) async {
     try {
+      print('ChatProvider: Analyzing video from path: $videoPath');
+      
       final result = await _geminiService.analyzeVideoFrame(videoPath);
+      print('Video analysis result: $result');
       
       if (result['success'] == true) {
         return result['analysis'] as String;
       } else {
+        final error = result['error'] ?? 'Unknown error';
+        print('Video analysis failed: $error');
         return 'I had trouble processing the video. Please describe what it shows.';
       }
     } catch (e) {
@@ -103,12 +118,13 @@ Provide a clear, detailed description that would help authorities understand the
   
   Future<String> transcribeAudio(String audioPath) async {
     try {
-      // Use Gemini to provide contextual response for audio
+      print('ChatProvider: Processing audio from path: $audioPath');
+      // Use Gemini Pro to process audio directly
       final response = await _geminiService.transcribeAudioWithGemini(audioPath);
       return response;
     } catch (e) {
       print('Error transcribing audio: $e');
-      return '';
+      return 'I had trouble processing your voice message. Could you please type your report instead?';
     }
   }
   

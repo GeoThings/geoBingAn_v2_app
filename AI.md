@@ -1,13 +1,19 @@
 # AI Integration Documentation - geoBingAn v2 App
 
 ## Overview
-The geoBingAn v2 app uses Google's Gemini 2.5 Flash model for natural language processing and multimodal analysis. This document outlines all AI prompts, context, and interaction logic.
+The geoBingAn v2 app uses Google's Gemini 2.5 Pro model for natural language processing and native multimodal analysis including audio, video, and images. This document outlines all AI prompts, context, and interaction logic.
 
 ## Model Configuration
-- **Primary Model**: `gemini-2.5-flash`
-- **Vision Model**: `gemini-2.5-flash` (multimodal)
-- **Temperature**: 0.7 (chat), 0.4 (vision)
-- **Max Output Tokens**: 1024 (chat), 4096 (vision)
+- **Primary Model**: `gemini-2.5-pro`
+- **Multimodal Model**: `gemini-2.5-pro` (audio, video, images)
+- **Temperature**: 0.7 (chat), 0.4 (multimodal)
+- **Max Output Tokens**: 1024 (chat), 4096 (multimodal)
+
+## Supported Input Types
+- **Text**: Natural language conversation
+- **Audio**: Native audio processing (WAV, MP3, etc.)
+- **Images**: Direct image analysis (JPEG, PNG, etc.)
+- **Video**: Native video analysis (MP4, up to 20MB)
 
 ## AI Prompts and Context
 
@@ -90,35 +96,43 @@ Summary (2-3 sentences):
 ```
 
 ### 5. Voice Message Handling
-When a voice message is received (transcription not yet available):
+When a voice message is received, Gemini 2.5 Pro processes it directly:
 
 ```
-The user has sent a voice message for a safety incident report.
-Please ask them to:
-1. Type out what they said in the voice message, or
-2. Describe the incident they want to report
+Listen to this audio message about a safety incident report.
 
-Key information to gather:
-- Type and nature of the incident
-- Location where it occurred
-- Time of occurrence
-- People involved or affected
-- Current safety status
-- Any immediate dangers
+Please:
+1. Transcribe what the user said
+2. Understand the incident being reported
+3. Extract and acknowledge key information:
+   - Type and nature of the incident
+   - Location where it occurred
+   - Time of occurrence
+   - People involved or affected
+   - Current safety status
+   - Any immediate dangers
+4. Ask clarifying questions for any missing critical information
+
+Respond in a helpful and professional manner, acknowledging what you heard and asking for any additional details needed.
 ```
 
 ### 6. Video Analysis
-When a video is uploaded:
+When a video is uploaded, Gemini 2.5 Pro analyzes it directly:
 
 ```
-The user has uploaded a video for a safety incident report. 
-Please ask them to describe:
-- What the video shows
-- When and where it was recorded
-- Any safety hazards or incidents visible
-- People or vehicles involved
-- The duration and key moments in the video
-- Any urgent safety concerns that need immediate attention
+Analyze this video for a safety incident report.
+
+Please provide a detailed analysis including:
+1. What is happening in the video (describe the sequence of events)
+2. Location details visible in the video
+3. Time indicators (time of day, lighting conditions)
+4. Any safety hazards or incidents observed
+5. People, vehicles, or objects involved
+6. The severity and urgency of any incidents shown
+7. Key timestamps of important events
+8. Any immediate safety concerns requiring urgent attention
+
+Provide specific details that would help authorities understand and respond to the situation.
 ```
 
 ## Conversation Flow
@@ -127,9 +141,9 @@ Please ask them to describe:
 2. **User Input**: Can be text, voice, photo, or video
 3. **AI Processing**: 
    - Text: Direct conversation with context
-   - Photo: Vision analysis + contextual questions
-   - Voice: Request for typed description
-   - Video: Request for video description
+   - Photo: Direct vision analysis + contextual questions
+   - Voice: Native audio processing + transcription + analysis
+   - Video: Direct video analysis + timeline extraction
 4. **Information Gathering**: AI asks clarifying questions based on missing information
 5. **Report Extraction**: Structured data extracted from conversation
 6. **Summary Generation**: Create concise report summary
@@ -150,11 +164,11 @@ Please ask them to describe:
 
 ## Future Enhancements
 
-- Audio transcription via Google Cloud Speech-to-Text
-- Video frame extraction and analysis
-- Real-time location detection
-- Multi-language support (currently supports English, Traditional Chinese, Simplified Chinese)
+- Real-time streaming for live incident reporting
+- Multi-language audio support (currently text supports English, Traditional Chinese, Simplified Chinese)
 - Integration with emergency services APIs
+- Automatic location extraction from media metadata
+- Support for longer video files (>20MB)
 
 ## Technical Implementation
 

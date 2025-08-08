@@ -53,10 +53,12 @@ This is a Flutter mobile application for both Android and iOS that:
 - Check console for detailed error messages during development
 
 ## Recent Updates
-### Gemini 2.5 Flash Integration (Latest)
-- Upgraded from Gemini Pro to Gemini 2.5 Flash model
-- Implemented vision analysis for photos using multimodal capabilities
-- Added contextual prompts for voice and video handling
+### Gemini 2.5 Pro Integration (Latest)
+- Upgraded from Gemini 2.5 Flash to Gemini 2.5 Pro model
+- Implemented native audio processing (no transcription service needed)
+- Implemented native video analysis (direct video file processing)
+- Enhanced vision analysis for photos using multimodal capabilities
+- All media types now processed directly by Gemini without external services
 - Fixed dark theme support for chat bubbles
 - Added detailed error logging for debugging
 - See [AI.md](AI.md) for complete prompt documentation
