@@ -8,11 +8,14 @@ import 'package:record/record.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:camera/camera.dart' as camera;
 import 'dart:io';
 import 'dart:typed_data';
 import '../../providers/chat_provider.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/services/gemini_service.dart';
+import '../../../../core/services/language_service.dart';
+import '../widgets/camera_capture_screen.dart';
 
 class ChatPage extends ConsumerStatefulWidget {
   const ChatPage({super.key});
@@ -86,19 +89,34 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   
   Future<void> _capturePhoto() async {
     try {
-      await _checkCameraPermission();
-      final ImagePicker picker = ImagePicker();
-      final XFile? photo = await picker.pickImage(
-        source: ImageSource.camera,
-        imageQuality: 80,
-      );
-      
-      if (photo != null) {
-        print('Photo captured: ${photo.path}');
-        print('Photo name: ${photo.name}');
-        _sendMediaToAI(photo.path, 'photo');
+      if (kIsWeb) {
+        // Use camera package for web to get live camera
+        final camera.XFile? photo = await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => const CameraCaptureScreen(isVideo: false),
+          ),
+        );
+        
+        if (photo != null) {
+          print('Photo captured on web: ${photo.path}');
+          _sendMediaToAI(photo.path, 'photo');
+        }
       } else {
-        print('No photo captured');
+        // Use image_picker for mobile (works with native camera)
+        await _checkCameraPermission();
+        final ImagePicker picker = ImagePicker();
+        final XFile? photo = await picker.pickImage(
+          source: ImageSource.camera,
+          imageQuality: 80,
+        );
+        
+        if (photo != null) {
+          print('Photo captured: ${photo.path}');
+          print('Photo name: ${photo.name}');
+          _sendMediaToAI(photo.path, 'photo');
+        } else {
+          print('No photo captured');
+        }
       }
     } catch (e) {
       print('Error capturing photo: $e');
@@ -113,19 +131,34 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   
   Future<void> _captureVideo() async {
     try {
-      await _checkCameraPermission();
-      final ImagePicker picker = ImagePicker();
-      final XFile? video = await picker.pickVideo(
-        source: ImageSource.camera,
-        maxDuration: const Duration(seconds: 30),
-      );
-      
-      if (video != null) {
-        print('Video captured: ${video.path}');
-        print('Video name: ${video.name}');
-        _sendMediaToAI(video.path, 'video');
+      if (kIsWeb) {
+        // Use camera package for web to get live camera
+        final camera.XFile? video = await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => const CameraCaptureScreen(isVideo: true),
+          ),
+        );
+        
+        if (video != null) {
+          print('Video captured on web: ${video.path}');
+          _sendMediaToAI(video.path, 'video');
+        }
       } else {
-        print('No video captured');
+        // Use image_picker for mobile (works with native camera)
+        await _checkCameraPermission();
+        final ImagePicker picker = ImagePicker();
+        final XFile? video = await picker.pickVideo(
+          source: ImageSource.camera,
+          maxDuration: const Duration(seconds: 30),
+        );
+        
+        if (video != null) {
+          print('Video captured: ${video.path}');
+          print('Video name: ${video.name}');
+          _sendMediaToAI(video.path, 'video');
+        } else {
+          print('No video captured');
+        }
       }
     } catch (e) {
       print('Error capturing video: $e');
@@ -201,11 +234,13 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         
         _currentRecordingPath = path;
         
+        // Use M4A format for better Gemini compatibility
         await _audioRecorder.start(
           const RecordConfig(
-            encoder: AudioEncoder.opus,
-            bitRate: 128000,
-            sampleRate: 44100,
+            encoder: AudioEncoder.aacLc,  // AAC-LC encoder for M4A format
+            bitRate: 128000,  // 128 kbps for good quality
+            sampleRate: 44100,  // Standard sample rate for M4A
+            numChannels: 1,     // Mono for smaller file size
           ),
           path: path,
         );
@@ -337,11 +372,12 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   }
   
   void _addWelcomeMessage() {
+    final languageService = LanguageService.instance;
     final welcomeMessage = types.TextMessage(
       author: _ai,
       createdAt: DateTime.now().millisecondsSinceEpoch,
       id: const Uuid().v4(),
-      text: 'Hello! I\'m the geoBingAn assistant. I can help you report safety incidents or concerns. Please describe what you\'d like to report, and I\'ll guide you through the process.',
+      text: languageService.getWelcomeMessage(),
     );
     ref.read(chatProvider.notifier).addMessage(welcomeMessage);
   }
@@ -377,7 +413,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       builder: (BuildContext context) {
         return SafeArea(
           child: SizedBox(
-            height: 200,
+            height: 250,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -392,9 +428,28 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                       padding: EdgeInsets.all(16.0),
                       child: Row(
                         children: [
-                          Icon(Icons.photo),
+                          Icon(Icons.photo_library),
                           SizedBox(width: 16),
-                          Text('Photo'),
+                          Text('Choose Photo from Gallery'),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _handleVideoSelection();
+                  },
+                  child: const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: Row(
+                        children: [
+                          Icon(Icons.video_library),
+                          SizedBox(width: 16),
+                          Text('Choose Video from Gallery'),
                         ],
                       ),
                     ),
@@ -447,15 +502,62 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   }
   
   void _handleImageSelection() async {
-    // TODO: Implement image picker
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 80,
+      );
+      
+      if (image != null) {
+        print('Image selected from gallery: ${image.path}');
+        _sendMediaToAI(image.path, 'photo');
+      }
+    } catch (e) {
+      print('Error selecting image: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to select image: ${e.toString()}'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+    }
+  }
+  
+  void _handleVideoSelection() async {
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? video = await picker.pickVideo(
+        source: ImageSource.gallery,
+        maxDuration: const Duration(seconds: 30),
+      );
+      
+      if (video != null) {
+        print('Video selected from gallery: ${video.path}');
+        _sendMediaToAI(video.path, 'video');
+      }
+    } catch (e) {
+      print('Error selecting video: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to select video: ${e.toString()}'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+    }
   }
   
   void _handleLocationSelection() async {
     // TODO: Implement location picker
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Location sharing coming soon'),
+      ),
+    );
   }
   
   void _handleFileSelection() async {
-    // TODO: Implement file picker
+    // TODO: Implement file picker for other document types if needed
   }
   
   void _showReportSummary() {

@@ -54,14 +54,16 @@ This is a Flutter mobile application for both Android and iOS that:
 
 ## Recent Updates
 ### Gemini 2.5 Pro Integration (Latest)
-- Upgraded from Gemini 2.5 Flash to Gemini 2.5 Pro model
-- Implemented native audio processing (no transcription service needed)
-- Implemented native video analysis (direct video file processing)
-- Enhanced vision analysis for photos using multimodal capabilities
-- All media types now processed directly by Gemini without external services
+- Upgraded from Gemini 2.5 Flash to Gemini 2.5 Pro model for better multimodal support
+- Implemented native audio, video, and image processing without external STT services
+- **Audio Format Fix**: Resolved Gemini internal errors by switching to M4A format (AAC-LC codec)
+  - Previous formats (WebM, PCM16) caused compatibility issues
+  - M4A provides cross-platform compatibility between web and mobile
+- Added language support based on user profile settings (Traditional Chinese default)
+- Fixed JSON responses from video analysis with conversational formatting
 - Fixed dark theme support for chat bubbles
 - Added detailed error logging for debugging
-- See [AI.md](AI.md) for complete prompt documentation
+- See [AI.md](AI.md) for complete prompt documentation and lessons learned
 
 ### Voice/Photo/Video Capture
 - Implemented multi-modal capture with mode switcher UI

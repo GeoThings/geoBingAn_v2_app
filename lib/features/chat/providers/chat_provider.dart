@@ -4,6 +4,7 @@ import 'package:flutter_chat_types/flutter_chat_types.dart' as types;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/services/gemini_service.dart';
 import '../../../core/services/api_service.dart';
+import '../../../core/services/language_service.dart';
 
 class ChatState {
   final List<types.Message> messages;
@@ -32,6 +33,7 @@ class ChatState {
 class ChatNotifier extends StateNotifier<ChatState> {
   final GeminiService _geminiService = GeminiService.instance;
   final ApiService _apiService = ApiService.instance;
+  final LanguageService _languageService = LanguageService.instance;
   
   ChatNotifier() : super(ChatState());
   
@@ -63,6 +65,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
     try {
       print('ChatProvider: Analyzing image from path: $imagePath');
       
+      final languageInstruction = _languageService.getLanguageInstruction();
       final prompt = '''You are a safety incident reporting assistant. A user has uploaded a photo for their incident report.
 
 Look at this image and respond conversationally as if you're talking directly to the user.
@@ -78,7 +81,7 @@ Describe what you see in the photo:
 
 After describing what you see, ask relevant follow-up questions to gather more details about the incident.
 
-IMPORTANT: Respond in natural language as a helpful assistant, NOT in bullet points or structured format. Have a conversation with the user about what you observed.''';
+IMPORTANT: Respond in natural language as a helpful assistant, NOT in bullet points or structured format. Have a conversation with the user about what you observed.$languageInstruction''';
       
       final result = await _geminiService.analyzeImageWithText(imagePath, prompt);
       print('Image analysis result: $result');
@@ -124,7 +127,7 @@ IMPORTANT: Respond in natural language as a helpful assistant, NOT in bullet poi
       return response;
     } catch (e) {
       print('Error transcribing audio: $e');
-      return 'I had trouble processing your voice message. Could you please type your report instead?';
+      return _languageService.getErrorMessage();
     }
   }
   

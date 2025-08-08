@@ -57,6 +57,7 @@ dependencies:
   # Image & File
   image_picker: ^1.0.7
   file_picker: ^6.1.1
+  camera: ^0.10.5
   
   # Permissions
   permission_handler: ^11.1.0

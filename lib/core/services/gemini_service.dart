@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
+import 'language_service.dart';
 
 class GeminiService {
   static GeminiService? _instance;
@@ -12,6 +13,7 @@ class GeminiService {
   late final GenerativeModel _model;
   late final GenerativeModel _visionModel;
   ChatSession? _currentChatSession;
+  final LanguageService _languageService = LanguageService.instance;
   
   GeminiService._() {
     _initializeModels();
@@ -59,29 +61,7 @@ class GeminiService {
   }
   
   void startNewChat() {
-    _currentChatSession = _model.startChat(history: [
-      Content.text('''You are an AI assistant for geoBingAn, a public safety reporting system. 
-Your role is to help users report incidents and safety concerns in natural language.
-
-Key responsibilities:
-1. Listen to users describe incidents or concerns
-2. Ask clarifying questions to gather necessary details
-3. Extract key information like location, time, type of incident, severity
-4. Help users submit structured reports to the system
-5. Provide guidance on emergency procedures when needed
-
-Always maintain a professional, empathetic tone. If someone reports an emergency, 
-remind them to call emergency services (112 in Taiwan) immediately.
-
-When gathering information, ensure you collect:
-- Type of incident
-- Location (as specific as possible)
-- Time of occurrence
-- Description of what happened
-- Any immediate dangers or injuries
-- Contact information if follow-up is needed'''),
-      Content.model([TextPart('I understand. I\'m here to help you report incidents and safety concerns. How can I assist you today?')]),
-    ]);
+    _currentChatSession = _model.startChat(history: []);
   }
   
   ChatSession get currentChat {
@@ -96,7 +76,15 @@ When gathering information, ensure you collect:
       print('Sending message to Gemini: $message');
       print('API Key configured: ${AppConfig.geminiApiKey.isNotEmpty}');
       
-      final response = await currentChat.sendMessage(Content.text(message));
+      // Add context and language instruction to the message
+      final languageInstruction = _languageService.getLanguageInstruction();
+      final contextualMessage = '''You are an AI assistant for geoBingAn, a public safety reporting system helping users report incidents.
+
+User message: $message
+
+Please respond conversationally to help gather incident details including location, time, type of incident, and severity.$languageInstruction''';
+      
+      final response = await currentChat.sendMessage(Content.text(contextualMessage));
       final text = response.text;
       print('Gemini response received: ${text?.substring(0, text.length > 100 ? 100 : text.length)}...');
       
@@ -107,7 +95,10 @@ When gathering information, ensure you collect:
       if (e.toString().contains('API key')) {
         return 'API key configuration error. Please check your Gemini API key.';
       }
-      return 'I\'m having trouble connecting to the AI service. Error: ${e.toString()}';
+      if (e.toString().contains('Format')) {
+        return 'I had trouble understanding that. Could you please rephrase your message?';
+      }
+      return 'I\'m having trouble connecting to the AI service. Please try again.';
     }
   }
   
@@ -195,6 +186,100 @@ Summary (2-3 sentences):''';
       print('Stack trace: ${StackTrace.current}');
       return {'success': false, 'error': e.toString()};
     }
+  }
+  
+  String _convertJsonToConversational(String text) {
+    // Clean up the text first
+    text = text.replaceAll('```json', '').replaceAll('```', '').trim();
+    
+    // Extract events from JSON-like structure
+    final List<String> events = [];
+    
+    // Try to parse the events with a more flexible regex
+    final regex = RegExp(r'"label"\s*:\s*"([^"]+)"', multiLine: true);
+    final matches = regex.allMatches(text);
+    
+    for (final match in matches) {
+      if (match.group(1) != null) {
+        String event = match.group(1)!;
+        // Clean up newlines and extra spaces
+        event = event.replaceAll('\n', ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+        events.add(event);
+      }
+    }
+    
+    // If we found events, convert to conversational format in user's language
+    if (events.isNotEmpty) {
+      final userLanguage = _languageService.getUserLanguage();
+      String conversational = '';
+      String followUp = '';
+      
+      // Create response based on user's language
+      if (userLanguage.contains('Traditional Chinese')) {
+        conversational = '我在您的影片中看到';
+        
+        if (events.length == 1) {
+          conversational += '${events[0]}。';
+        } else {
+          conversational += '發生了幾件事：';
+          for (int i = 0; i < events.length; i++) {
+            if (i == 0) {
+              conversational += '首先，${events[i]}。';
+            } else if (i == events.length - 1) {
+              conversational += '最後，${events[i]}。';
+            } else {
+              conversational += '然後，${events[i]}。';
+            }
+          }
+        }
+        
+        followUp = '\n\n請告訴我更多關於這個事件的資訊。這是什麼時候、在哪裡發生的？有人受傷或處於危險中嗎？';
+      } else if (userLanguage.contains('Simplified Chinese')) {
+        conversational = '我在您的视频中看到';
+        
+        if (events.length == 1) {
+          conversational += '${events[0]}。';
+        } else {
+          conversational += '发生了几件事：';
+          for (int i = 0; i < events.length; i++) {
+            if (i == 0) {
+              conversational += '首先，${events[i]}。';
+            } else if (i == events.length - 1) {
+              conversational += '最后，${events[i]}。';
+            } else {
+              conversational += '然后，${events[i]}。';
+            }
+          }
+        }
+        
+        followUp = '\n\n请告诉我更多关于这个事件的信息。这是什么时候、在哪里发生的？有人受伤或处于危险中吗？';
+      } else {
+        // Default to English
+        conversational = 'I can see in your video that ';
+        
+        if (events.length == 1) {
+          conversational += '${events[0].toLowerCase()}. ';
+        } else {
+          conversational += 'several things happen: ';
+          for (int i = 0; i < events.length; i++) {
+            if (i == 0) {
+              conversational += 'First, ${events[i].toLowerCase()}. ';
+            } else if (i == events.length - 1) {
+              conversational += 'Finally, ${events[i].toLowerCase()}. ';
+            } else {
+              conversational += 'Then, ${events[i].toLowerCase()}. ';
+            }
+          }
+        }
+        
+        followUp = '\n\nCould you tell me more about this incident? When and where did this occur? Was anyone injured or in danger?';
+      }
+      
+      return conversational + followUp;
+    }
+    
+    // If not JSON or couldn't parse, return original text
+    return text;
   }
   
   Map<String, dynamic> _parseJson(String jsonStr) {
@@ -285,23 +370,36 @@ Summary (2-3 sentences):''';
       }
       
       // Create video part for Gemini Pro
-      final videoPart = DataPart('video/mp4', Uint8List.fromList(videoBytes));
+      // Web typically records as webm, mobile as mp4
+      final mimeType = kIsWeb ? 'video/webm' : 'video/mp4';
+      final videoPart = DataPart(mimeType, Uint8List.fromList(videoBytes));
       
-      final prompt = '''You are a safety incident reporting assistant. A user has uploaded a video for their incident report.
+      final languageInstruction = _languageService.getLanguageInstruction();
+      final prompt = '''You are a safety incident reporting assistant having a conversation with a user who uploaded a video.
 
-Analyze this video and respond in natural language as if you're having a conversation with the user.
+CRITICAL INSTRUCTIONS:
+1. DO NOT output JSON, arrays, or any structured data format
+2. Write in complete sentences as if speaking to the user
+3. Use natural, conversational language
+4. Start with "I can see in your video..." or similar phrase
 
-Describe what you see in the video, including:
-- What is happening (describe the events you observe)
-- Any safety hazards or incidents
-- Location details if visible
+Analyze the video and describe:
+- What is happening throughout the video
+- Any safety concerns or incidents
 - People, vehicles, or objects involved
-- Time of day and conditions
-- Severity assessment
+- Location and time indicators
+- Severity of any incidents
 
-After describing what you see, ask relevant follow-up questions to gather any missing information needed for the incident report.
+Then ask follow-up questions about:
+- When this occurred
+- Exact location
+- Anyone injured or in danger
+- What led to this incident
 
-IMPORTANT: Respond conversationally in plain text, NOT in JSON or structured format. Talk directly to the user about what you observed in their video.''';
+Example response format:
+"I can see in your video that [describe what happens]. This appears to be [assessment]. Can you tell me when this incident occurred and if anyone was injured?"
+
+Remember: Write as if having a conversation, NOT as data or JSON.$languageInstruction''';
       
       final response = await _visionModel.generateContent([
         Content.multi([
@@ -310,15 +408,50 @@ IMPORTANT: Respond conversationally in plain text, NOT in JSON or structured for
         ])
       ]);
       
+      String analysisText = response.text ?? '';
+      print('Raw Gemini video response: $analysisText');
+      
+      // Post-process to ensure conversational format
+      if (analysisText.contains('json') || analysisText.contains('[{')) {
+        print('Detected JSON in response, converting to conversational format');
+        analysisText = _convertJsonToConversational(analysisText);
+        print('Converted response: $analysisText');
+      }
+      
+      // Get fallback message in user's language if needed
+      String fallbackMessage;
+      final userLanguage = _languageService.getUserLanguage();
+      if (userLanguage.contains('Traditional Chinese')) {
+        fallbackMessage = '我已分析了您的影片。請提供更多關於事件發生的時間和詳細情況。';
+      } else if (userLanguage.contains('Simplified Chinese')) {
+        fallbackMessage = '我已分析了您的视频。请提供更多关于事件发生的时间和详细情况。';
+      } else {
+        fallbackMessage = 'I\'ve analyzed your video. Could you provide more details about what happened and when this incident occurred?';
+      }
+      
       return {
         'success': true,
-        'analysis': response.text ?? 'Video analyzed. Please provide any additional context about the incident.'
+        'analysis': analysisText.isNotEmpty 
+            ? analysisText 
+            : fallbackMessage
       };
     } catch (e) {
       print('Error analyzing video with Gemini Pro: $e');
+      
+      // Get error message in user's language
+      String errorMessage;
+      final userLanguage = _languageService.getUserLanguage();
+      if (userLanguage.contains('Traditional Chinese')) {
+        errorMessage = '我無法分析這個影片。請描述影片中顯示的內容，以便我協助您完成報告。';
+      } else if (userLanguage.contains('Simplified Chinese')) {
+        errorMessage = '我无法分析这个视频。请描述视频中显示的内容，以便我协助您完成报告。';
+      } else {
+        errorMessage = 'I had trouble analyzing the video. Please describe what it shows so I can help with your report.';
+      }
+      
       return {
         'success': false,
-        'analysis': 'I had trouble analyzing the video. Please describe what it shows so I can help with your report.'
+        'analysis': errorMessage
       };
     }
   }
@@ -382,19 +515,25 @@ IMPORTANT: Respond conversationally in plain text, NOT in JSON or structured for
     try {
       // Gemini 2.5 Pro supports native audio input
       final audioBytes = await _loadAudioBytes(audioPath);
-      if (audioBytes.isEmpty && !kIsWeb) {
+      if (audioBytes.isEmpty) {
         return 'Could not load audio file. Please try recording again or type your message.';
       }
       
-      // For web, handle appropriately
-      if (kIsWeb && audioBytes.isEmpty) {
-        // Web audio might be handled differently
-        return 'Voice message received. Please describe the incident you want to report.';
+      // Audio is now recorded as M4A (AAC-LC)
+      // Use audio/mp4 MIME type for M4A format
+      String mimeType = 'audio/mp4';  // MIME type for M4A/AAC audio
+      
+      if (kIsWeb) {
+        print('Web audio: M4A format, ${audioBytes.length} bytes');
+      } else {
+        print('Mobile audio: M4A format, ${audioBytes.length} bytes');
       }
       
-      // Create audio part for Gemini Pro
-      final audioPart = DataPart('audio/wav', Uint8List.fromList(audioBytes));
+      // Create audio part for Gemini Pro with M4A format
+      final audioPart = DataPart(mimeType, Uint8List.fromList(audioBytes));
+      print('Sending M4A audio to Gemini Pro: ${audioBytes.length} bytes as $mimeType');
       
+      final languageInstruction = _languageService.getLanguageInstruction();
       final prompt = '''You are a safety incident reporting assistant. Listen to this voice message from a user reporting an incident.
 
 First, acknowledge what you heard in the audio message by summarizing what the user said.
@@ -409,19 +548,35 @@ Then, have a natural conversation with the user about their report. Consider:
 
 Ask follow-up questions to gather any missing information needed for a complete incident report.
 
-IMPORTANT: Respond conversationally as if you're talking directly to the user. Start by acknowledging what they said in their voice message.''';
+IMPORTANT: Respond conversationally as if you're talking directly to the user. Start by acknowledging what they said in their voice message.$languageInstruction''';
       
-      final response = await _visionModel.generateContent([
-        Content.multi([
-          TextPart(prompt),
-          audioPart,
-        ])
-      ]);
-      
-      return response.text ?? 'I understood your voice message. Could you provide more details about the incident?';
+      try {
+        // Send audio to Gemini 2.5 Pro using multimodal model
+        print('Sending to Gemini 2.5 Pro multimodal model...');
+        final response = await _visionModel.generateContent([
+          Content.multi([
+            TextPart(prompt),
+            audioPart,
+          ])
+        ]);
+        
+        final responseText = response.text;
+        print('Gemini audio response received: ${responseText?.substring(0, responseText.length > 100 ? 100 : responseText.length)}...');
+        
+        if (responseText != null && responseText.isNotEmpty) {
+          return responseText;
+        } else {
+          // Fallback if no response
+          return _languageService.getWebAudioFallbackMessage();
+        }
+      } catch (audioError) {
+        print('Error sending audio to Gemini: $audioError');
+        // If Gemini can't process the audio, provide helpful fallback
+        return _languageService.getWebAudioFallbackMessage();
+      }
     } catch (e) {
-      print('Error processing audio with Gemini Pro: $e');
-      return 'I had trouble processing your voice message. Could you please describe the incident you want to report?';
+      print('Error in transcribeAudioWithGemini: $e');
+      return _languageService.getErrorMessage();
     }
   }
   

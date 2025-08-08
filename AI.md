@@ -11,7 +11,7 @@ The geoBingAn v2 app uses Google's Gemini 2.5 Pro model for natural language pro
 
 ## Supported Input Types
 - **Text**: Natural language conversation
-- **Audio**: Native audio processing (WAV, MP3, etc.)
+- **Audio**: M4A format (AAC-LC codec) for cross-platform compatibility
 - **Images**: Direct image analysis (JPEG, PNG, etc.)
 - **Video**: Native video analysis (MP4, up to 20MB)
 
@@ -177,3 +177,29 @@ Provide specific details that would help authorities understand and respond to t
 - **UI**: `ChatPage` (lib/features/chat/presentation/pages/chat_page.dart)
 
 The AI maintains conversation context throughout the session, allowing for natural, contextual interactions while gathering all necessary information for accurate incident reporting.
+
+## Audio Configuration Details
+
+### Recording Settings
+- **Encoder**: AAC-LC (Advanced Audio Coding - Low Complexity)
+- **Container**: M4A
+- **Bitrate**: 128 kbps
+- **Sample Rate**: 44.1 kHz
+- **Channels**: Mono (1 channel)
+- **MIME Type**: audio/mp4
+
+### Lessons Learned
+
+1. **Audio Format Compatibility**: 
+   - Gemini 2.5 Pro requires properly formatted audio containers (not raw PCM data)
+   - M4A format with AAC-LC codec provides best cross-platform compatibility
+   - WebM format from web browsers can cause internal errors in Gemini
+
+2. **Platform Differences**:
+   - Web uses blob URLs for audio data transfer
+   - Mobile uses file system paths
+   - Both platforms now use consistent M4A format for Gemini compatibility
+
+3. **Error Resolution**:
+   - "Internal error" from Gemini often indicates unsupported audio format
+   - Solution: Use standardized M4A format instead of raw PCM or WebM
