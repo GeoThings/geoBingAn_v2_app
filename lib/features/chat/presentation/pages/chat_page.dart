@@ -13,8 +13,9 @@ import 'dart:io';
 import 'dart:typed_data';
 import '../../providers/chat_provider.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../../../core/services/gemini_service.dart';
+import '../../../../core/services/ai_analysis_service.dart';
 import '../../../../core/services/language_service.dart';
+import '../../../../core/services/role_service.dart';
 import '../widgets/camera_capture_screen.dart';
 
 class ChatPage extends ConsumerStatefulWidget {
@@ -371,13 +372,16 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     }
   }
   
-  void _addWelcomeMessage() {
-    final languageService = LanguageService.instance;
+  void _addWelcomeMessage() async {
+    final roleService = RoleService.instance;
+    final currentRole = roleService.getCurrentRole();
+    final welcomeText = await roleService.getRoleWelcomeMessage(currentRole);
+    
     final welcomeMessage = types.TextMessage(
       author: _ai,
       createdAt: DateTime.now().millisecondsSinceEpoch,
       id: const Uuid().v4(),
-      text: languageService.getWelcomeMessage(),
+      text: welcomeText,
     );
     ref.read(chatProvider.notifier).addMessage(welcomeMessage);
   }

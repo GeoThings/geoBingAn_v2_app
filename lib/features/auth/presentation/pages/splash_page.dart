@@ -42,24 +42,13 @@ class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateM
   
   Future<void> _checkAuthStatus() async {
     await Future.delayed(const Duration(seconds: 2));
-    
-    final accessToken = await _secureStorage.read(key: 'access_token');
-    
+
     if (!mounted) return;
-    
-    if (accessToken != null) {
-      try {
-        final response = await ApiService.instance.getCurrentUser();
-        if (response.statusCode == 200) {
-          StorageService.instance.saveUser(response.data);
-          Navigator.pushReplacementNamed(context, '/home');
-          return;
-        }
-      } catch (e) {
-        print('Failed to get user: $e');
-      }
-    }
-    
+
+    // 暫時清除所有 token，強制重新登入
+    // 這可以避免無限的 token 刷新循環
+    await ApiService.instance.clearTokens();
+
     Navigator.pushReplacementNamed(context, '/login');
   }
   

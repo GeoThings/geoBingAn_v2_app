@@ -5,6 +5,7 @@ import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
 import 'language_service.dart';
+import 'role_service.dart';
 
 class GeminiService {
   static GeminiService? _instance;
@@ -14,6 +15,7 @@ class GeminiService {
   late final GenerativeModel _visionModel;
   ChatSession? _currentChatSession;
   final LanguageService _languageService = LanguageService.instance;
+  final RoleService _roleService = RoleService.instance;
   
   GeminiService._() {
     _initializeModels();
@@ -76,13 +78,16 @@ class GeminiService {
       print('Sending message to Gemini: $message');
       print('API Key configured: ${AppConfig.geminiApiKey.isNotEmpty}');
       
-      // Add context and language instruction to the message
+      // Get role-specific context and language instruction
+      final currentRole = _roleService.getCurrentRole();
+      final rolePrompt = _roleService.getRolePrompt(currentRole);
       final languageInstruction = _languageService.getLanguageInstruction();
-      final contextualMessage = '''You are an AI assistant for geoBingAn, a public safety reporting system helping users report incidents.
+      
+      final contextualMessage = '''$rolePrompt
 
 User message: $message
 
-Please respond conversationally to help gather incident details including location, time, type of incident, and severity.$languageInstruction''';
+Please respond conversationally based on your role as ${currentRole.displayName}. Help gather relevant information specific to this type of report.$languageInstruction''';
       
       final response = await currentChat.sendMessage(Content.text(contextualMessage));
       final text = response.text;

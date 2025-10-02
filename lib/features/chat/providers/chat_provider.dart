@@ -2,9 +2,10 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter_chat_types/flutter_chat_types.dart' as types;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/services/gemini_service.dart';
+import '../../../core/services/ai_analysis_service.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/services/language_service.dart';
+import '../../../core/services/role_service.dart';
 
 class ChatState {
   final List<types.Message> messages;
@@ -31,14 +32,15 @@ class ChatState {
 }
 
 class ChatNotifier extends StateNotifier<ChatState> {
-  final GeminiService _geminiService = GeminiService.instance;
+  final AIAnalysisService _aiAnalysisService = AIAnalysisService.instance;
   final ApiService _apiService = ApiService.instance;
   final LanguageService _languageService = LanguageService.instance;
-  
+  final RoleService _roleService = RoleService.instance;
+
   ChatNotifier() : super(ChatState());
   
   void startNewConversation() {
-    _geminiService.startNewChat();
+    // 清除對話狀態 (不再需要 Gemini service)
     state = ChatState();
   }
   
@@ -54,103 +56,185 @@ class ChatNotifier extends StateNotifier<ChatState> {
   
   Future<String> sendMessageToAI(String message) async {
     try {
-      final response = await _geminiService.sendMessage(message);
-      return response;
+      // 使用新的輕量化 AI 分析服務
+      final conversationHistory = _getConversationHistory();
+      final result = await _aiAnalysisService.analyzeText(
+        content: message,
+        conversationHistory: conversationHistory,
+      );
+
+      if (result['success'] == true) {
+        return result['detailed_findings'] as String? ?? result['summary'] as String? ?? '分析完成';
+      } else {
+        // 確保有有意義的錯誤回應
+        final errorMessage = result['detailed_findings'] as String? ??
+                           result['summary'] as String? ??
+                           '分析服務暫時無法使用，請直接描述您的狀況，我會協助您完成報告。';
+        return errorMessage;
+      }
     } catch (e) {
-      return 'Sorry, I encountered an error. Please try again.';
+      print('Error sending message to AI: $e');
+      return '抱歉，我遇到了一些問題。請再試一次。';
     }
   }
   
   Future<String> analyzeImage(String imagePath) async {
     try {
-      print('ChatProvider: Analyzing image from path: $imagePath');
-      
-      final languageInstruction = _languageService.getLanguageInstruction();
-      final prompt = '''You are a safety incident reporting assistant. A user has uploaded a photo for their incident report.
+      print('ChatProvider: Analyzing image via backend: $imagePath');
 
-Look at this image and respond conversationally as if you're talking directly to the user.
+      final conversationHistory = _getConversationHistory();
+      final result = await _aiAnalysisService.analyzeImage(
+        imagePath: imagePath,
+        conversationHistory: conversationHistory,
+      );
 
-Describe what you see in the photo:
-- What appears to be happening or what happened
-- Any visible hazards or safety concerns
-- Location details if visible
-- People or vehicles involved
-- Any damage or injuries visible
-- Time of day if determinable
-- Weather conditions if relevant
-
-After describing what you see, ask relevant follow-up questions to gather more details about the incident.
-
-IMPORTANT: Respond in natural language as a helpful assistant, NOT in bullet points or structured format. Have a conversation with the user about what you observed.$languageInstruction''';
-      
-      final result = await _geminiService.analyzeImageWithText(imagePath, prompt);
-      print('Image analysis result: $result');
-      
       if (result['success'] == true) {
-        return result['analysis'] as String;
+        return result['detailed_findings'] as String? ?? result['summary'] as String? ?? '圖片分析完成';
       } else {
-        final error = result['error'] ?? 'Unknown error';
-        print('Image analysis failed: $error');
-        return 'I was unable to analyze the image properly. Please describe what the photo shows.';
+        print('Backend image analysis failed: ${result['processing_info']}');
+        final errorMessage = result['detailed_findings'] as String? ??
+                           result['summary'] as String? ??
+                           '圖片分析服務暫時無法使用，請描述圖片中的內容，我會協助您完成報告。';
+        return errorMessage;
       }
     } catch (e) {
-      print('Error analyzing image: $e');
-      return 'I encountered an error analyzing the photo. Please describe what it shows so I can help you with your report.';
+      print('Error analyzing image via backend: $e');
+      return '圖片分析服務暫時無法使用。請描述圖片內容。';
     }
   }
   
   Future<String> analyzeVideo(String videoPath) async {
     try {
-      print('ChatProvider: Analyzing video from path: $videoPath');
-      
-      final result = await _geminiService.analyzeVideoFrame(videoPath);
-      print('Video analysis result: $result');
-      
+      print('ChatProvider: Analyzing video via backend: $videoPath');
+
+      final conversationHistory = _getConversationHistory();
+      final result = await _aiAnalysisService.analyzeVideo(
+        videoPath: videoPath,
+        conversationHistory: conversationHistory,
+      );
+
       if (result['success'] == true) {
-        return result['analysis'] as String;
+        return result['detailed_findings'] as String? ?? result['summary'] as String? ?? '影片分析完成';
       } else {
-        final error = result['error'] ?? 'Unknown error';
-        print('Video analysis failed: $error');
-        return 'I had trouble processing the video. Please describe what it shows.';
+        print('Backend video analysis failed: ${result['processing_info']}');
+        return result['detailed_findings'] as String? ?? '我無法分析這段影片。請描述影片內容。';
       }
     } catch (e) {
-      print('Error analyzing video: $e');
-      return 'I had trouble processing the video. Please describe what it shows.';
+      print('Error analyzing video via backend: $e');
+      return '影片分析服務暫時無法使用。請描述影片內容。';
     }
   }
   
   Future<String> transcribeAudio(String audioPath) async {
     try {
-      print('ChatProvider: Processing audio from path: $audioPath');
-      // Use Gemini Pro to process audio directly
-      final response = await _geminiService.transcribeAudioWithGemini(audioPath);
-      return response;
+      print('ChatProvider: Processing audio via backend: $audioPath');
+
+      final conversationHistory = _getConversationHistory();
+      final result = await _aiAnalysisService.analyzeAudio(
+        audioPath: audioPath,
+        conversationHistory: conversationHistory,
+      );
+
+      if (result['success'] == true) {
+        return result['detailed_findings'] as String? ?? result['summary'] as String? ?? '音訊分析完成';
+      } else {
+        print('Backend audio analysis failed: ${result['processing_info']}');
+        final errorMessage = result['detailed_findings'] as String? ??
+                           result['summary'] as String? ??
+                           '語音分析服務暫時無法使用，請用文字描述您的狀況，我會協助您完成報告。';
+        return errorMessage;
+      }
     } catch (e) {
-      print('Error transcribing audio: $e');
-      return _languageService.getErrorMessage();
+      print('Error processing audio via backend: $e');
+      return '語音分析服務暫時無法使用。請用文字描述。';
     }
   }
   
   Future<Map<String, dynamic>> extractReportData() async {
-    final textMessages = state.messages
-        .where((m) => m is types.TextMessage)
-        .map((m) => '${m.author.id}: ${(m as types.TextMessage).text}')
-        .toList()
-        .reversed
-        .toList();
-    
-    return await _geminiService.extractReportData(textMessages);
+    try {
+      final conversationHistory = _getConversationHistory();
+
+      final result = await _aiAnalysisService.analyzeConversation(
+        messages: conversationHistory,
+        extractReportData: true,
+      );
+
+      if (result['success'] == true) {
+        // 回傳符合原有格式的資料
+        final recommendations = result['recommendations'] as Map<String, dynamic>? ?? {};
+        final riskAssessment = result['risk_assessment'] as Map<String, dynamic>? ?? {};
+
+        return {
+          'incident_type': _extractIncidentType(result),
+          'location': null,  // 需要從其他地方取得
+          'time': null,      // 需要從其他地方取得
+          'description': result['detailed_findings'] ?? result['summary'] ?? '',
+          'severity': riskAssessment['level'] ?? 'medium',
+          'requires_immediate_attention': result['urgency'] == 'high' || result['urgency'] == 'critical',
+          'contact_info': null,
+          'additional_notes': recommendations['immediate_actions']?.join(', ') ?? '',
+          'ai_analysis': result,  // 完整的 AI 分析結果
+        };
+      }
+
+      return {};
+    } catch (e) {
+      print('Error extracting report data: $e');
+      return {};
+    }
   }
-  
+
   Future<String> getSummary() async {
-    final textMessages = state.messages
+    try {
+      final conversationHistory = _getConversationHistory();
+
+      final result = await _aiAnalysisService.analyzeConversation(
+        messages: conversationHistory,
+        extractReportData: false,
+      );
+
+      if (result['success'] == true) {
+        return result['summary'] as String? ?? '對話摘要完成';
+      } else {
+        return result['detailed_findings'] as String? ?? '無法生成摘要';
+      }
+    } catch (e) {
+      print('Error getting summary: $e');
+      return '無法生成對話摘要';
+    }
+  }
+
+  /// 取得對話歷史 (輔助方法)
+  List<String> _getConversationHistory() {
+    return state.messages
         .where((m) => m is types.TextMessage)
         .map((m) => '${m.author.id}: ${(m as types.TextMessage).text}')
         .toList()
         .reversed
+        .take(10) // 限制最近10則訊息
         .toList();
-    
-    return await _geminiService.summarizeConversation(textMessages);
+  }
+
+  /// 從 AI 分析結果中萃取事件類型
+  String? _extractIncidentType(Map<String, dynamic> result) {
+    final riskAssessment = result['risk_assessment'] as Map<String, dynamic>? ?? {};
+    final factors = riskAssessment['factors'] as List<dynamic>? ?? [];
+
+    if (factors.isNotEmpty) {
+      return factors.first.toString();
+    }
+
+    // 從詳細分析中嘗試判斷
+    final findings = result['detailed_findings'] as String? ?? '';
+    if (findings.contains('安全') || findings.contains('safety')) {
+      return 'safety_issue';
+    } else if (findings.contains('環境') || findings.contains('environment')) {
+      return 'environmental_issue';
+    } else if (findings.contains('結構') || findings.contains('structure')) {
+      return 'structural_issue';
+    }
+
+    return null;
   }
   
   Future<bool> submitReport() async {

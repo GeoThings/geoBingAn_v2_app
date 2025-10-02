@@ -79,3 +79,39 @@ This is a Flutter mobile application for both Android and iOS that:
 - Mode selector with Voice/Photo/Video options
 - Visual feedback for active recording state
 - Dark mode support with proper theming for chat interface
+
+### 輕量化架構重構 (2025-09-27 - 最新)
+- **移除直接 Gemini 依賴**: 不再在 App 端直接呼叫 `google_generative_ai`
+- **後端統一 AI 處理**: 所有 AI 分析都由 geoBingAn_v2_backend 統一處理
+- **新增 AIAnalysisService**: 取代原有的 GeminiService，呼叫後端 API
+- **統一角色系統**: 6個專業角色與後端完全同步
+- **Web 相容性改善**: 修復 kIsWeb 條件下的 blob URL 處理
+- **錯誤處理改善**: 提供更有意義的錯誤訊息和備用建議
+- **向後相容性**: 自動映射舊角色 (accidentOperator → safetyInspector 等)
+
+#### 新的 AI 分析流程
+```dart
+// 原有的直接 Gemini 呼叫 (已移除)
+// final result = await GeminiService.instance.analyzeImage(imagePath);
+
+// 新的後端 API 呼叫
+final result = await AIAnalysisService.instance.analyzeImage(
+  imagePath: imagePath,
+  conversationHistory: history,
+  location: location
+);
+```
+
+#### 角色系統重構
+```dart
+// 舊角色系統
+enum UserRole {
+  accidentOperator, issueOperator, siteSurveyor, emergencyDoctor, foodbankManager
+}
+
+// 新角色系統 (與後端統一)
+enum UserRole {
+  safetyInspector, environmentalSpecialist, infrastructureEngineer,
+  emergencyResponder, constructionSupervisor, geotechnicalAnalyst
+}
+```

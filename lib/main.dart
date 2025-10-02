@@ -10,6 +10,7 @@ import 'features/auth/presentation/pages/login_page.dart';
 import 'features/auth/presentation/pages/register_page.dart';
 import 'features/auth/presentation/pages/oauth_callback_page.dart';
 import 'features/home/presentation/pages/home_page.dart';
+import 'features/settings/presentation/pages/settings_page.dart';
 import 'core/services/storage_service.dart';
 
 void main() async {
@@ -46,6 +47,7 @@ class GeoBingAnApp extends ConsumerWidget {
         '/register': (context) => const RegisterPage(),
         '/home': (context) => const HomePage(),
         '/chat': (context) => const ChatPage(),
+        '/settings': (context) => const SettingsPage(),
         '/oauth/callback': (context) => const OAuthCallbackPage(),
       },
     );

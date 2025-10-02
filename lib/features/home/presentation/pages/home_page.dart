@@ -70,7 +70,7 @@ class _HomePageState extends ConsumerState<HomePage> {
               if (value == 'logout') {
                 _handleLogout();
               } else if (value == 'settings') {
-                // TODO: Navigate to settings
+                Navigator.pushNamed(context, '/settings');
               }
             },
             itemBuilder: (BuildContext context) => [

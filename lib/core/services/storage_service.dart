@@ -129,6 +129,15 @@ class StorageService {
     await _prefs?.remove('draft_reports');
   }
   
+  // User Role
+  Future<void> setUserRole(String role) async {
+    await _prefs?.setString('user_role', role);
+  }
+  
+  String getUserRole() {
+    return _prefs?.getString('user_role') ?? 'accident_operator';
+  }
+  
   // General
   Future<void> clearAll() async {
     await _prefs?.clear();
